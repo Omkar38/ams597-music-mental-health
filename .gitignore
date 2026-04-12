@@ -1,0 +1,17 @@
+# Generated outputs (reproducible from source — not committed)
+df_clean.rds
+df_clean.csv
+top_features.rds
+xgb_depression_model.bin
+xgb_feature_importance.csv
+results_summary_table.csv
+*.png
+
+# R session artifacts
+.Rhistory
+.RData
+.Rproj.user/
+*.Rproj
+
+# macOS
+.DS_Store
