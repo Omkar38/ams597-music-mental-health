@@ -30,7 +30,7 @@ set.seed(2026)
 ```
 
 ```{r packages, include=FALSE}
-pkgs <- c("dplyr", "stringr", "ggplot2", "reshape2",
+pkgs <- c("dplyr", "stringr", "ggplot2", "reshape2", "gridExtra",
           "xgboost", "Matrix", "Ckmeans.1d.dp",
           "moments", "car", "knitr", "kableExtra")
 for (p in pkgs) {
@@ -38,6 +38,7 @@ for (p in pkgs) {
     install.packages(p, repos = "https://cran.r-project.org")
 }
 library(dplyr); library(stringr); library(ggplot2); library(reshape2)
+library(gridExtra)
 library(xgboost); library(Matrix); library(Ckmeans.1d.dp)
 library(moments); library(car); library(knitr); library(kableExtra)
 ```
@@ -86,8 +87,16 @@ responses** collected between August 27 and November 9, 2022. Variables include:
 ## Load Raw Data
 
 ```{r load-data}
-raw_path <- "data/mxmh_survey_results.csv"
-df_raw   <- read.csv(raw_path, stringsAsFactors = FALSE, check.names = FALSE)
+# Support both: knitting from RStudio (wd = Rmd dir) and Rscript from project root
+raw_path <- if (file.exists("data/mxmh_survey_results.csv")) {
+  "data/mxmh_survey_results.csv"
+} else if (file.exists("mxmh_survey_results.csv")) {
+  "mxmh_survey_results.csv"
+} else {
+  stop("Cannot find mxmh_survey_results.csv. Place it in data/ relative to this file.")
+}
+
+df_raw <- read.csv(raw_path, stringsAsFactors = FALSE, check.names = FALSE)
 cat("Rows:", nrow(df_raw), " | Columns:", ncol(df_raw))
 ```
 
@@ -182,12 +191,6 @@ p2 <- ggplot(df_clean, aes(x = anxiety)) +
   theme_minimal()
 
 gridExtra::grid.arrange(p1, p2, ncol = 2)
-```
-
-```{r install-gridExtra, include=FALSE}
-if (!requireNamespace("gridExtra", quietly=TRUE))
-  install.packages("gridExtra", repos="https://cran.r-project.org")
-library(gridExtra)
 ```
 
 Both scores are approximately unimodal but not normally distributed — confirmed
