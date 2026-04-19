@@ -8,9 +8,9 @@
 # =============================================================================
 
 # ── Packages ──────────────────────────────────────────────────────────────────
-if (!requireNamespace("dplyr",   quietly = TRUE)) install.packages("dplyr")
-if (!requireNamespace("stringr", quietly = TRUE)) install.packages("stringr")
-if (!requireNamespace("ggplot2", quietly = TRUE)) install.packages("ggplot2")
+if (!requireNamespace("dplyr",   quietly = TRUE)) install.packages("dplyr", repos='https://cran.r-project.org')
+if (!requireNamespace("stringr", quietly = TRUE)) install.packages("stringr", repos='https://cran.r-project.org')
+if (!requireNamespace("ggplot2", quietly = TRUE)) install.packages("ggplot2", repos='https://cran.r-project.org')
 
 library(dplyr)
 library(stringr)
@@ -22,14 +22,14 @@ set.seed(2026)
 # ── 1. Load Raw Data ──────────────────────────────────────────────────────────
 # Place mxmh_survey_results.csv in the same folder as this script,
 # or update the path below.
-raw_path <- "mxmh_survey_results.csv"
+raw_path <- "data/mxmh_survey_results.csv"
 
 if (!file.exists(raw_path)) {
   stop("Cannot find '", raw_path, "'.\n",
        "Please put the CSV in the same folder as this script and re-run.")
 }
 
-df_raw <- read.csv(raw_path, stringsAsFactors = FALSE)
+df_raw <- read.csv(raw_path, stringsAsFactors = FALSE, check.names = FALSE)
 cat("── Raw data loaded ──\n")
 cat("Rows:", nrow(df_raw), " | Columns:", ncol(df_raw), "\n\n")
 
@@ -174,7 +174,7 @@ cat("Plots saved: plot_01a–01d\n\n")
 # ── 11. Correlation Heatmap (EDA) ────────────────────────────────────────────
 # Shows pairwise Pearson correlations between all key numeric variables.
 # Useful for spotting multicollinearity before regression and for EDA storytelling.
-if (!requireNamespace("reshape2", quietly = TRUE)) install.packages("reshape2")
+if (!requireNamespace("reshape2", quietly = TRUE)) install.packages("reshape2", repos='https://cran.r-project.org')
 library(reshape2)
 
 numeric_vars <- df_clean %>%

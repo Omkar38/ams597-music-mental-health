@@ -1,7 +1,8 @@
 # The Sound of Sadness
 ### Music Listening Behaviour and Mental Health: A Statistical Analysis
-**AMS 597 Statistical Computing — Spring 2026 Group Project**
-Stony Brook University | Instructor: Silvia Sharna
+**AMS 597 Statistical Computing — Spring 2026 | Stony Brook University**
+
+*Aarushi Bahri · Jai Nilesh Vasi · Omkar Vilas Lashkare · Prerana Somani · Sanket Jaysing Bendale*
 
 ---
 
@@ -9,23 +10,35 @@ Stony Brook University | Instructor: Silvia Sharna
 
 This project investigates whether music-listening intensity and genre preferences are
 statistically associated with self-reported mental health indicators (anxiety, depression,
-insomnia, OCD). We use a two-pronged approach: a machine-learning model (XGBoost) to
-identify which variables are predictively important, followed by classical statistical
-inference to determine whether those variables are genuinely significant after controlling
-for confounders.
+insomnia, OCD). We use a two-pronged approach:
 
-**Dataset:** [MXMH Survey Results](https://www.kaggle.com/datasets/catherinerasgaitis/mxmh-survey-results)
-(736 respondents · 33 variables · collected Aug–Nov 2022)
+1. **XGBoost (ML)** to identify which variables are predictively important
+2. **Classical statistical inference** (Wilcoxon / ANOVA / MLR) to determine whether those
+   variables are genuinely significant after controlling for confounders
+
+**Dataset**: [MXMH Survey Results](https://www.kaggle.com/datasets/catherinerasgaitis/mxmh-survey-results)
+— 736 respondents · 33 variables · collected Aug–Nov 2022
 
 ---
 
-## Research Questions
+## Key Results
 
-| # | Research Question | Method | Language |
-|---|-------------------|--------|----------|
-| RQ1 | Which music-listening features best predict depression scores? | XGBoost (ML) + 5-fold CV | R |
-| RQ2 | Do instrumentalists differ from non-instrumentalists in anxiety? Does favourite genre predict depression? | Wilcoxon rank-sum test · One-way ANOVA + Kruskal-Wallis + Tukey HSD | R |
-| RQ3 | Do the XGBoost-flagged features remain statistically significant after controlling for age? | Multiple Linear Regression | R |
+| Model | RMSE | MAE | R² | Dataset |
+|-------|------|-----|----|---------|
+| XGBoost | 2.26 | 1.85 | **0.40** | 20% holdout |
+| Multiple Linear Regression | 2.94 | 2.53 | 0.054 | Full training set |
+
+*Depression scale is 0–10. XGBoost explains 40% of held-out variance vs 5.4% for MLR.*
+
+| Hypothesis | Test | Result | Decision |
+|------------|------|--------|----------|
+| H1: Instrumentalist → Anxiety | Wilcoxon rank-sum | W=56527, p=0.405, r=−0.031 | Fail to Reject H₀ |
+| H2: Genre → Depression | One-Way ANOVA + Kruskal-Wallis | F(12,703)=1.80, p=0.045, η²=0.030 | **Reject H₀** |
+| H3: log_hours → Depression (MLR) | Multiple Linear Regression | β=0.535, p=0.008 | **Reject H₀** |
+| H3: frequency_metal → Depression (MLR) | Multiple Linear Regression | β=0.425, p<0.001 | **Reject H₀** |
+
+> **Core finding**: XGBoost correctly identified genuine statistical signals — the
+> top music-behaviour features survive classical inference even after controlling for age.
 
 ---
 
@@ -33,190 +46,151 @@ for confounders.
 
 ```
 .
-├── 00_run_all.R                      ← Master runner: sources all stages in order
-├── 01_data_cleaning.R                ← Stage 1: Load, clean, impute, EDA, save df_clean.rds
-├── 02_xgboost_feature_importance.R   ← Stage 2: XGBoost training, feature importance, CV
-├── 03_assumption_checking.R          ← Stage 3: Shapiro-Wilk, Q-Q plots, skewness/kurtosis
-├── 04_hypothesis_tests.R             ← Stage 4: Wilcoxon / ANOVA / Kruskal-Wallis / MLR
-├── 05_conclusion.R                   ← Stage 5: Summary table, comparison plot, conclusion
-├── mxmh_survey_results.csv           ← Raw survey data (source: Kaggle)
+├── report.Rmd                            ← MAIN REPORT — compile this for submission
+├── Coding_preprocessing_fixed.Rmd       ← Preprocessing detail (Prerana Somani)
+│
+├── 00_run_all.R                          ← Master runner: sources all pipeline stages
+├── 01_data_cleaning.R                    ← Stage 1: Load, clean, impute, EDA
+├── 02_xgboost_feature_importance.R       ← Stage 2: XGBoost, feature importance, CV
+├── 03_assumption_checking.R              ← Stage 3: Shapiro-Wilk, Q-Q, skewness
+├── 04_hypothesis_tests.R                 ← Stage 4: Wilcoxon / ANOVA / KW / MLR
+├── 05_conclusion.R                       ← Stage 5: Summary table, accuracy, conclusion
+│
+├── mxmh_survey_results.csv              ← Raw survey data (source: Kaggle)
+├── music_mental_health_survey_results.ipynb  ← Exploratory notebook
+│
+├── STAT PIPELINE.pdf                     ← Pipeline reference document
+├── stat computing project.pdf            ← Project requirements
 └── README.md
 ```
 
----
-
-## Pipeline at a Glance
-
-```
-Raw CSV
-  │
-  ▼
-Stage 1 ── Data Cleaning & EDA
-  │         • BPM extraction & median imputation
-  │         • Frequency columns → ordered factor (0–3)
-  │         • Boolean Yes/No → 0/1
-  │         • Log-transform hours_per_day
-  │         • Correlation heatmap (EDA)
-  │         └─ saves: df_clean.rds
-  │
-  ▼
-Stage 2 ── XGBoost Feature Importance          (RQ1)
-  │         • 80/20 train/test split
-  │         • Early stopping (rounds = 15)
-  │         • Feature importance by Gain
-  │         • 5-fold CV on training set
-  │         └─ saves: top_features.rds, xgb_feature_importance.csv
-  │
-  ▼
-Stage 3 ── Assumption Checking
-  │         • Shapiro-Wilk normality tests
-  │         • Q-Q plots for all key variables
-  │         • Density comparison: raw vs log-transformed hours
-  │
-  ▼
-Stage 4 ── Statistical Hypothesis Tests        (RQ2, RQ3)
-  │         • H1: Wilcoxon rank-sum (instrumentalist → anxiety)
-  │         • H2: One-way ANOVA + Kruskal-Wallis + Tukey HSD (genre → depression)
-  │         • H3: Multiple Linear Regression (XGBoost audit)
-  │
-  ▼
-Stage 5 ── Conclusion & Summary
-            • Results summary table
-            • XGBoost importance vs. MLR significance comparison plot
-            • Written conclusion
-```
+**For submission**: compile `report.Rmd` → it produces the full self-contained PDF/HTML
+report covering all data cleaning, EDA, assumption checking, hypothesis tests, and conclusions.
 
 ---
 
-## Setup & Requirements
+## Research Questions
+
+| # | Research Question | Method | Language |
+|---|-------------------|--------|----------|
+| RQ1 | Which music-listening features best predict depression? | XGBoost + 5-fold CV | R |
+| RQ2 | Do instrumentalists differ in anxiety? Does genre predict depression? | Wilcoxon rank-sum · ANOVA + Kruskal-Wallis + Tukey HSD | R |
+| RQ3 | Do XGBoost-flagged features remain significant after controlling for age? | Multiple Linear Regression + VIF + residual diagnostics | R |
+
+---
+
+## Pipeline
+
+```
+Raw CSV  →  Stage 1: Clean & EDA
+             • check.names=FALSE preserves column names
+             • BPM: regex extraction, range filter [40,250], median imputation
+             • Frequency cols → ordered factor (0–3)
+             • Boolean Yes/No → 0/1
+             • log(hours+1) for right-skew correction
+             • Correlation heatmap, distribution plots
+             └─ df_clean.rds
+
+         →  Stage 2: XGBoost Feature Importance         [RQ1]
+             • 80/20 train/test split (seed = 2026)
+             • early_stopping_rounds = 15
+             • Accuracy: RMSE, MAE, R² on held-out test
+             • 5-fold CV on training set only
+             └─ top_features.rds, xgb_metrics.rds
+
+         →  Stage 3: Assumption Checking
+             • Shapiro-Wilk for all key variables
+             • Q-Q plots, density comparisons
+
+         →  Stage 4: Hypothesis Tests                   [RQ2, RQ3]
+             • H1: Wilcoxon rank-sum (instrumentalist → anxiety)
+             • H2: ANOVA + Levene + Kruskal-Wallis + Tukey HSD (genre → depression)
+             • H3: MLR + VIF + residual diagnostics (XGBoost audit)
+
+         →  Stage 5: Conclusion
+             • Model accuracy comparison table (XGBoost vs MLR)
+             • XGBoost importance vs MLR significance plot
+             • Full written conclusion with actual p-values
+```
+
+---
+
+## Setup
 
 ### Prerequisites
 
-- R ≥ 4.1
-- RStudio (recommended) or any R environment
+- R ≥ 4.1 · RStudio (recommended)
 
 ### Install Packages
 
-Run once in the R console:
-
 ```r
 install.packages(c(
-  "dplyr", "stringr", "ggplot2", "reshape2",
+  "dplyr", "stringr", "ggplot2", "reshape2", "gridExtra",
   "xgboost", "Matrix", "Ckmeans.1d.dp",
-  "moments", "car", "knitr"
-))
+  "moments", "car", "knitr", "kableExtra", "rmarkdown"
+), repos = "https://cran.r-project.org")
 ```
-
-All scripts also auto-install missing packages on first run.
 
 ---
 
 ## How to Run
 
-### Option 1 — Run everything at once (recommended)
-
-1. Open `00_run_all.R` in RStudio
-2. **Session → Set Working Directory → To Source File Location**
-3. Click **Source** (or press `Ctrl+Shift+S`)
-
-This runs all five stages in order and prints timing for each.
-
-### Option 2 — Run stages individually
-
-Set your working directory to the project folder first, then source each file in order:
+### Option 1 — Compile the full report (recommended for submission)
 
 ```r
-setwd("path/to/project")        # adjust to your path
-
-source("01_data_cleaning.R")
-source("02_xgboost_feature_importance.R")
-source("03_assumption_checking.R")
-source("04_hypothesis_tests.R")
-source("05_conclusion.R")
+# In RStudio: open report.Rmd, then click Knit
+# Or from the console:
+setwd("path/to/project")
+rmarkdown::render("report.Rmd", output_format = "pdf_document")
 ```
 
-> **Important:** All scripts must be run from the same working directory as
-> `mxmh_survey_results.csv`. Each stage depends on the `.rds` files produced
-> by the previous stage.
+### Option 2 — Run the pipeline scripts individually
+
+```r
+setwd("path/to/project")   # must contain mxmh_survey_results.csv
+source("00_run_all.R")     # runs all 5 stages in order (~60 sec total)
+```
+
+> All scripts use `set.seed(2026)` and require the working directory to be
+> set to the project folder before running.
 
 ---
 
 ## Outputs
 
-Each stage writes clearly named files to the working directory:
+| Stage / File | Key Outputs |
+|------|-------------|
+| `report.Rmd` | Self-contained reproducible PDF/HTML report |
+| Stage 01 | `df_clean.rds`, `df_clean.csv`, 5 EDA plots |
+| Stage 02 | `xgb_metrics.rds`, `top_features.rds`, `xgb_feature_importance.csv`, 2 plots |
+| Stage 03 | 8 Q-Q / density / histogram plots |
+| Stage 04 | 4 hypothesis-test plots |
+| Stage 05 | `results_summary_table.csv`, `model_accuracy_comparison.csv`, comparison plot |
 
-| Stage | Output Files |
-|-------|-------------|
-| 01 | `df_clean.rds`, `df_clean.csv`, `plot_01a_depression_dist.png`, `plot_01b_anxiety_dist.png`, `plot_01c_hours_dist.png`, `plot_01d_log_hours_dist.png`, `plot_01e_correlation_heatmap.png` |
-| 02 | `xgb_feature_importance.csv`, `top_features.rds`, `xgb_depression_model.bin`, `plot_02a_xgb_importance.png`, `plot_02b_xgb_cv_curve.png` |
-| 03 | `plot_03a_qq_*.png` (6 files), `plot_03b_hours_density_compare.png`, `plot_03c_depression_hist_normal.png`, `plot_03d_anxiety_hist_normal.png` |
-| 04 | `plot_04a_h1_anxiety_violin.png`, `plot_04b_h2_depression_by_genre.png`, `plot_04c_h3_regression_diagnostics.png`, `plot_04d_h3_coef_plot.png` |
-| 05 | `results_summary_table.csv`, `plot_05a_xgb_vs_mlr_comparison.png` |
-
----
-
-## Methodology Summary
-
-### Data Cleaning (Stage 1)
-
-- **BPM**: Extracted leading integer using regex; values outside 40–250 BPM set to `NA`
-  and imputed with the column median (robust to outliers)
-- **Frequency columns**: Converted from text (`"Never"`, `"Rarely"`, `"Sometimes"`,
-  `"Very frequently"`) to ordered factors, then to integers 0–3 for modelling
-- **Boolean columns**: `Yes`/`No` recoded to `1`/`0`
-- **Rows dropped**: Those missing `depression`, `anxiety`, `age`, or `hours_per_day`
-- **Derived variable**: `log_hours = log(hours_per_day + 1)` to correct right skew
-
-### Machine Learning (Stage 2)
-
-XGBoost (`reg:squarederror`) trained on an 80/20 train/test split with early stopping.
-Feature importance is measured by **Gain** (reduction in squared-error loss per split).
-5-fold cross-validation is performed on the training set only.
-
-### Hypothesis Tests (Stage 4)
-
-| Hypothesis | IV | DV | Test | Why |
-|------------|----|----|------|-----|
-| H1 | Instrumentalist (0/1) | Anxiety (0–10) | Wilcoxon rank-sum | Anxiety is bounded integers, confirmed non-normal |
-| H2 | Favourite genre | Depression (0–10) | ANOVA + Kruskal-Wallis + Tukey HSD | Kruskal-Wallis as non-parametric check; Tukey HSD for pairwise comparisons |
-| H3 | `log_hours` + top XGBoost music feature + age | Depression | Multiple Linear Regression | Audits whether ML-flagged variables survive classical inference |
-
-Effect sizes reported: rank-biserial *r* (H1), η² (H2), R² (H3).
+Generated outputs (`.rds`, `.png`, `.csv`, `.bin`) are in `.gitignore` —
+reproduce them by running `00_run_all.R`.
 
 ---
 
-## Key Design Decisions
+## Bugs Fixed in This Branch (`Preprocessed-code`)
 
-- **`music_effects` excluded from XGBoost**: This column asks respondents whether music
-  improved/worsened their mood — including it would be data leakage
-- **Genre filter (n > 15)**: Genres with too few respondents produce unreliable ANOVA
-  cells and are excluded from H2
-- **Dynamic feature for H3**: The top non-demographic feature from XGBoost's ranked list
-  is used automatically — no hardcoding
-- **Kruskal-Wallis alongside ANOVA**: Since ANOVA residuals are likely non-normal
-  (bounded integer outcome), both tests are reported and checked for agreement
-- **`set.seed(2026)`**: Applied globally for full reproducibility
+| Bug | Root Cause | Fix |
+|-----|-----------|-----|
+| `hours_per_day` not found | `read.csv` converts spaces to `.` before column cleaning, stripping underscores | Added `check.names = FALSE` to `read.csv` |
+| xgboost crash | `watchlist` renamed to `evals` in xgboost ≥ 2.0 | Renamed parameter |
+| CV crash | `nrounds = best_iteration` could be 0 or NULL | Guarded with `max(best_iteration, 10L)` |
+| `r_rb = NA` | Named numeric from `wilcox.test$statistic` causes silent NA in arithmetic | Wrapped in `as.numeric()` |
 
 ---
 
-## Reproducibility
+## Methodology Notes
 
-All analyses are run in R (≥ 4.1). The global seed is `set.seed(2026)`.
-Running `source("00_run_all.R")` from the project directory should reproduce every
-plot, table, and printed result exactly.
-
----
-
-## Notes on the Dataset
-
-- **Source**: Kaggle — [catherinerasgaitis/mxmh-survey-results](https://www.kaggle.com/datasets/catherinerasgaitis/mxmh-survey-results)
-- **Collection period**: August 27 – November 9, 2022 (online survey)
-- **Sample**: 736 anonymised respondents
-- **Key variables**: Age, Hours per day, Primary streaming service, Favourite genre,
-  16 genre-frequency columns (ordinal), BPM (self-reported, messy), Anxiety (0–10),
-  Depression (0–10), Insomnia (0–10), OCD (0–10), Music effects (Improve/No effect/Worsen)
+- **`music_effects` excluded from XGBoost**: direct self-report of music impact → data leakage
+- **Genre filter n > 15**: too few observations make ANOVA cells unreliable
+- **Dynamic feature for H3**: top non-demographic feature from XGBoost auto-selected — no hardcoding
+- **Kruskal-Wallis alongside ANOVA**: H2 residuals are non-normal; both tests reported and checked for agreement
+- **H2 borderline**: p = 0.045 is marginally significant; the corroborating Kruskal-Wallis strengthens the conclusion
 
 ---
 
-*AMS 597 Statistical Computing — Spring 2026*
-*Stony Brook University*
+*AMS 597 Statistical Computing — Spring 2026 · Stony Brook University*

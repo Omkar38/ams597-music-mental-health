@@ -43,11 +43,11 @@ run_stage <- function(script, label) {
 }
 
 # ── Run pipeline ──────────────────────────────────────────────────────────────
-run_stage("01_data_cleaning.R",              "Stage 1: Data Cleaning & EDA")
-run_stage("02_xgboost_feature_importance.R", "Stage 2: XGBoost Feature Importance")
-run_stage("03_assumption_checking.R",        "Stage 3: Normality Assumption Checks")
-run_stage("04_hypothesis_tests.R",           "Stage 4: Statistical Hypothesis Tests")
-run_stage("05_conclusion.R",                 "Stage 5: Conclusion & Summary")
+run_stage("R/01_data_cleaning.R",              "Stage 1: Data Cleaning & EDA")
+run_stage("R/02_xgboost_feature_importance.R", "Stage 2: XGBoost Feature Importance")
+run_stage("R/03_assumption_checking.R",        "Stage 3: Normality Assumption Checks")
+run_stage("R/04_hypothesis_tests.R",           "Stage 4: Statistical Hypothesis Tests")
+run_stage("R/05_conclusion.R",                 "Stage 5: Conclusion & Summary")
 
 cat(rep("═", 60), "\n", sep = "")
 cat("  ALL STAGES COMPLETE\n")

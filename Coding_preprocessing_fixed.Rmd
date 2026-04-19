@@ -1,0 +1,320 @@
+---
+title: "Project"
+author: "Prerana Somani"
+date: "2026-04-19"
+output: word_document
+---
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(corrplot)
+library(car)
+library(rstatix)
+library(dunn.test)
+```
+
+# 1. Introduction to Data Preprocessing and EDA
+
+This section prepares the MXMH (Music x Mental Health) dataset for later statistical analysis and modeling.  
+Because the dataset comes from a real-world online survey, it contains missing values, inconsistent fields, and variables that are not useful for analysis. The preprocessing steps below are used to improve data quality, reduce noise, and ensure that the later methods are applied to reliable inputs.
+
+The main preprocessing goals are:
+- identify missing and inconsistent values,
+- remove variables that do not contribute meaningful information,
+- clean outliers and unrealistic values,
+- transform variables where needed,
+- explore patterns in the data before hypothesis testing and modeling.
+
+# 2. Load Data and Inspect Structure
+
+```{r}
+df_raw <- read.csv("data/mxmh_survey_results.csv", stringsAsFactors = FALSE)
+
+dim(df_raw)
+str(df_raw)
+names(df_raw)
+head(df_raw)
+```
+
+# 3. Initial Summary and Missing-Value Check
+
+```{r}
+summary(df_raw)
+colSums(is.na(df_raw))
+```
+
+The initial inspection shows that the dataset contains a mix of numeric, categorical, and survey-response variables. Missing values are present in several columns, and some variables require cleaning before they can be used in analysis.
+
+# 4. Data Cleaning
+
+## 4.1 Remove variables with no analytical value
+
+`Timestamp` is removed because it is unique to each response and does not help explain mental health outcomes.  
+`Permissions` is removed because it does not contribute meaningful variation for analysis.
+
+```{r}
+df <- df_raw %>%
+  select(-any_of(c("Timestamp", "Permissions")))
+
+dim(df)
+```
+
+## 4.2 Standardize blank strings as missing values
+
+Some survey-style datasets contain empty strings instead of proper missing values. These are converted to `NA` so that missingness is handled consistently.
+
+```{r}
+df[df == ""] <- NA
+colSums(is.na(df))
+```
+
+## 4.3 Keep rows with essential variables for analysis
+
+The later analysis depends on the availability of core variables such as age, listening behavior, and mental health scores.  
+Rows with missing values in these essential fields are removed to ensure valid comparisons and models.
+
+```{r}
+key_vars <- c("Age", "Hours.per.day", "Anxiety", "Depression")
+
+df <- df %>%
+  filter(
+    !is.na(Age),
+    !is.na(Hours.per.day),
+    !is.na(Anxiety),
+    !is.na(Depression)
+  )
+
+dim(df)
+colSums(is.na(df))
+```
+
+**Justification:**  
+These variables are central to the research questions. Removing rows missing these fields avoids fitting methods on incomplete target or predictor information.
+
+## 4.4 Clean the BPM variable
+
+The BPM variable is known to contain missing values and unrealistic entries in this dataset.  
+Instead of dropping all rows with missing BPM, we:
+- mark unrealistic BPM values as missing,
+- then impute missing BPM values with the median.
+
+This preserves sample size while reducing the influence of extreme or invalid values.
+
+```{r}
+summary(df$BPM)
+sum(is.na(df$BPM))
+
+df$BPM <- as.numeric(df$BPM)
+df$BPM[df$BPM < 40 | df$BPM > 250] <- NA
+
+median_bpm <- median(df$BPM, na.rm = TRUE)
+df$BPM[is.na(df$BPM)] <- median_bpm
+
+summary(df$BPM)
+sum(is.na(df$BPM))
+```
+
+**Justification:**  
+BPM values below 40 or above 250 are unlikely to be realistic in this context and may reflect data-entry issues. Median imputation is used because it is robust to skewness and extreme values.
+
+## 4.5 Remove constant or near-empty columns if present
+
+Columns with only one unique value do not provide useful information and can cause problems in modeling.
+
+```{r}
+constant_cols <- sapply(df, function(x) length(unique(na.omit(x))) <= 1)
+constant_cols
+
+df <- df[, !constant_cols]
+dim(df)
+```
+
+## 4.6 Convert categorical variables to factors
+
+Survey-response variables that represent categories should be stored as factors for statistical tests and plotting.
+
+```{r}
+df[] <- lapply(df, function(x) {
+  if (is.character(x)) as.factor(x) else x
+})
+
+factor_vars <- c("Instrumentalist", "Fav.genre", "While.working", "Exploratory", "Foreign.languages", "Composer")
+for (v in factor_vars) {
+  if (v %in% names(df)) df[[v]] <- as.factor(df[[v]])
+}
+
+str(df)
+```
+
+# 5. Variable Transformation
+
+Listening hours are often right-skewed because a small number of respondents report unusually high values.  
+To reduce skewness and make the variable more stable for later modeling, we create a log-transformed version:
+
+```{r}
+summary(df$Hours.per.day)
+
+df$log_hours <- log(df$Hours.per.day + 1)
+
+summary(df$log_hours)
+```
+
+**Justification:**  
+The log transformation reduces the effect of extreme listening-hour values and is appropriate when a variable has a long right tail.
+
+# 6. Exploratory Data Analysis (EDA)
+
+## 6.1 Distribution of numeric variables
+
+```{r}
+num_cols <- sapply(df, is.numeric)
+
+df %>%
+  select(where(is.numeric)) %>%
+  pivot_longer(cols = everything(), names_to = "variable", values_to = "value") %>%
+  ggplot(aes(x = value)) +
+  geom_histogram(bins = 30, fill = "steelblue", color = "white") +
+  facet_wrap(~variable, scales = "free") +
+  theme_minimal() +
+  labs(title = "Distributions of Numeric Variables", x = "Value", y = "Count")
+```
+
+**Interpretation:**  
+The numeric variables show that some mental health outcomes are moderately spread across respondents, while listening-related variables such as hours per day appear more skewed. This supports the use of transformation for listening hours.
+
+## 6.2 Correlation heatmap for numeric variables
+
+```{r}
+corr_matrix <- cor(df[, num_cols], use = "complete.obs")
+corrplot(corr_matrix, method = "color", type = "upper", tl.cex = 0.7)
+```
+
+**Interpretation:**  
+The correlation matrix helps identify relationships among numeric variables. It is useful for detecting variables that may move together and for informing later model selection.
+
+## 6.3 Favorite genre distribution
+
+```{r}
+ggplot(df, aes(x = Fav.genre)) +
+  geom_bar(fill = "steelblue") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Distribution of Favorite Genre", x = "Favorite Genre", y = "Count")
+```
+
+**Interpretation:**  
+Some music genres appear much more frequently than others. This matters because groups with very small sample sizes may be unstable for later comparisons.
+
+## 6.4 Depression across favorite genres
+
+```{r}
+df_genre <- df %>%
+  group_by(Fav.genre) %>%
+  filter(n() >= 15) %>%
+  ungroup()
+
+ggplot(df_genre, aes(x = Fav.genre, y = Depression, fill = Fav.genre)) +
+  geom_boxplot(show.legend = FALSE) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Depression Scores by Favorite Genre", x = "Favorite Genre", y = "Depression Score")
+```
+
+**Interpretation:**  
+The boxplots suggest that depression scores vary across genre groups. This motivates testing genre-based differences later with an appropriate statistical method.
+
+## 6.5 Anxiety by instrumentalist status
+
+```{r}
+ggplot(df, aes(x = Instrumentalist, y = Anxiety, fill = Instrumentalist)) +
+  geom_boxplot(show.legend = FALSE) +
+  theme_minimal() +
+  labs(title = "Anxiety by Instrumentalist Status", x = "Instrumentalist", y = "Anxiety Score")
+```
+
+**Interpretation:**  
+The boxplot provides an initial visual comparison of anxiety between instrumentalists and non-instrumentalists. The overlap suggests that any difference may be small, which will be formally tested later.
+
+## 6.6 Age vs depression
+
+```{r}
+ggplot(df, aes(x = Age, y = Depression)) +
+  geom_point(alpha = 0.5, color = "steelblue") +
+  geom_smooth(method = "lm", se = FALSE, color = "darkred") +
+  theme_minimal() +
+  labs(title = "Age vs Depression", x = "Age", y = "Depression Score")
+```
+
+**Interpretation:**  
+This plot helps assess whether age may act as a confounding or explanatory variable in later models involving depression.
+
+# 7. Preprocessing Summary
+
+The preprocessing stage included:
+- removal of non-informative variables,
+- standardization of blank responses as missing values,
+- filtering of rows missing essential variables,
+- cleaning and median imputation of BPM,
+- removal of constant columns,
+- conversion of categorical fields to factors,
+- transformation of listening hours using a log scale.
+
+These steps improve data quality, make the dataset suitable for later analysis, and provide a transparent justification for how raw survey data was prepared.
+
+# HYPOTHESIS TESTING
+
+# H1: Does being an instrumentalist affect anxiety levels?
+
+H₀ (Null): Instrumentalists and non-instrumentalists have the same anxiety distribution.  
+H₁ (Alternative): There is a difference in anxiety between the two groups.
+
+```{r}
+df[] <- lapply(df, function(x) {
+  if (is.factor(x)) {
+    x[x == ""] <- NA
+    x <- droplevels(x)
+  }
+  return(x)
+})
+```
+
+```{r}
+# -------------------------------
+# H1: Instrumentalist vs Anxiety
+# -------------------------------
+
+table(df$Instrumentalist)
+aggregate(Anxiety ~ Instrumentalist, data = df, summary)
+by(df$Anxiety, df$Instrumentalist, shapiro.test)
+
+wilcox_test <- wilcox.test(Anxiety ~ Instrumentalist, data = df)
+wilcox_test
+```
+
+A Wilcoxon rank-sum test was conducted to examine whether anxiety levels differ between instrumentalists and non-instrumentalists.
+
+The results showed no statistically significant difference (p = 0.327 ≥ 0.05).
+
+Therefore, we fail to reject the null hypothesis, indicating that being an instrumentalist does not significantly affect anxiety levels.
+
+# H3 - Auditing XGBoost Feature Importance
+
+```{r}
+df_h3 <- df[, c("Depression", "Hours.per.day", "BPM", "Age")]
+df_h3 <- na.omit(df_h3)
+df_h3 <- df_h3[df_h3$BPM >= 40 & df_h3$BPM <= 300, ]
+
+str(df_h3)
+summary(df_h3)
+```
+
+```{r}
+model_h3 <- lm(Depression ~ Hours.per.day + BPM + Age, data = df_h3)
+
+summary(model_h3)
+```
+
+```{r}
+summary(model_h3)$fstatistic
+```
