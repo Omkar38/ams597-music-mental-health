@@ -11,7 +11,7 @@
 # ── Packages ──────────────────────────────────────────────────────────────────
 pkgs <- c("dplyr", "ggplot2", "xgboost", "Matrix", "Ckmeans.1d.dp")
 for (p in pkgs) {
-  if (!requireNamespace(p, quietly = TRUE)) install.packages(p)
+  if (!requireNamespace(p, quietly = TRUE)) install.packages(p, repos='https://cran.r-project.org')
 }
 
 library(dplyr)
@@ -71,8 +71,8 @@ dtest  <- xgb.DMatrix(sparse_matrix[test_idx,  ], label = y_target[test_idx])
 
 cat(sprintf("Train set: %d rows | Test set: %d rows\n\n", length(train_idx), length(test_idx)))
 
-# watchlist lets XGBoost print both train and test RMSE each round
-watchlist <- list(train = dtrain, test = dtest)
+# evals (formerly watchlist) — prints train/test RMSE each round
+evals <- list(train = dtrain, test = dtest)
 
 xgb_model <- xgb.train(
   params = list(
@@ -84,7 +84,7 @@ xgb_model <- xgb.train(
   ),
   data                = dtrain,
   nrounds             = 200,             # cap; early stopping will cut this short
-  watchlist           = watchlist,
+  evals               = evals,           # renamed from watchlist in xgboost >= 2.0
   early_stopping_rounds = 15,            # stop if test RMSE doesn't improve for 15 rounds
   verbose             = 1,
   print_every_n       = 20
@@ -147,7 +147,7 @@ set.seed(2026)
 cv_result <- xgb.cv(
   data      = dtrain,
   nfold     = 5,
-  nrounds   = best_iteration,   # use the best round from the held-out run
+  nrounds   = max(best_iteration, 10L),  # guard against 0/NULL
   params    = list(
     objective   = "reg:squarederror",
     eval_metric = "rmse",

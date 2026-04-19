@@ -12,7 +12,7 @@
 # ── Packages ──────────────────────────────────────────────────────────────────
 pkgs <- c("dplyr", "ggplot2", "knitr")
 for (p in pkgs) {
-  if (!requireNamespace(p, quietly = TRUE)) install.packages(p)
+  if (!requireNamespace(p, quietly = TRUE)) install.packages(p, repos='https://cran.r-project.org')
 }
 
 library(dplyr)

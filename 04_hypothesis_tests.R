@@ -22,7 +22,7 @@
 # ── Packages ──────────────────────────────────────────────────────────────────
 pkgs <- c("dplyr", "ggplot2", "car")   # car: leveneTest
 for (p in pkgs) {
-  if (!requireNamespace(p, quietly = TRUE)) install.packages(p)
+  if (!requireNamespace(p, quietly = TRUE)) install.packages(p, repos='https://cran.r-project.org')
 }
 
 library(dplyr)
@@ -80,11 +80,11 @@ cat("\n")
 n1 <- sum(df_clean$instrumentalist == 0, na.rm = TRUE)
 n2 <- sum(df_clean$instrumentalist == 1, na.rm = TRUE)
 # Expected W under H0
-W_obs  <- wilcox_result$statistic
-mu_W   <- n1 * n2 / 2
+W_obs   <- as.numeric(wilcox_result$statistic)  # strip name attr to avoid NA propagation
+mu_W    <- n1 * n2 / 2
 sigma_W <- sqrt(n1 * n2 * (n1 + n2 + 1) / 12)
-Z_val  <- (W_obs - mu_W) / sigma_W
-r_rb   <- Z_val / sqrt(n1 + n2)
+Z_val   <- (W_obs - mu_W) / sigma_W
+r_rb    <- Z_val / sqrt(n1 + n2)
 cat(sprintf("Effect size (rank-biserial r) = %.3f\n", r_rb))
 cat("  Interpretation: |r| < 0.1 = negligible, 0.1–0.3 = small,\n")
 cat("                  0.3–0.5 = medium, > 0.5 = large\n\n")
