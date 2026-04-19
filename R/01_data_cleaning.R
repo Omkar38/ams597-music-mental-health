@@ -22,7 +22,7 @@ set.seed(2026)
 # ── 1. Load Raw Data ──────────────────────────────────────────────────────────
 # Place mxmh_survey_results.csv in the same folder as this script,
 # or update the path below.
-raw_path <- "mxmh_survey_results.csv"
+raw_path <- "data/mxmh_survey_results.csv"
 
 if (!file.exists(raw_path)) {
   stop("Cannot find '", raw_path, "'.\n",

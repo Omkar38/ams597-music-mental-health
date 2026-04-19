@@ -90,14 +90,28 @@ xgb_model <- xgb.train(
   print_every_n       = 20
 )
 
-# Report held-out test RMSE
+# Report held-out accuracy metrics
 test_preds     <- predict(xgb_model, dtest)
-test_rmse      <- sqrt(mean((test_preds - y_target[test_idx])^2))
+y_test         <- y_target[test_idx]
+test_rmse      <- sqrt(mean((test_preds - y_test)^2))
+test_mae       <- mean(abs(test_preds - y_test))
+ss_res         <- sum((test_preds - y_test)^2)
+ss_tot         <- sum((y_test - mean(y_test))^2)
+test_r2        <- 1 - ss_res / ss_tot
 best_iteration <- xgb_model$best_iteration
 
 cat(sprintf("\nModel training complete.\n"))
 cat(sprintf("  Best iteration : %d\n", best_iteration))
-cat(sprintf("  Hold-out RMSE  : %.4f  (scale 0–10; < 2 is reasonable)\n\n", test_rmse))
+cat(sprintf("  Hold-out RMSE  : %.4f  (depression scale 0–10)\n", test_rmse))
+cat(sprintf("  Hold-out MAE   : %.4f\n", test_mae))
+cat(sprintf("  Hold-out R²    : %.4f  (XGBoost explains %.1f%% of variance)\n\n",
+            test_r2, test_r2 * 100))
+
+# Save metrics for comparison in Stage 5
+xgb_metrics <- list(rmse = test_rmse, mae = test_mae, r2 = test_r2,
+                    n_train = length(train_idx), n_test = length(test_idx))
+saveRDS(xgb_metrics, "xgb_metrics.rds")
+cat("Accuracy metrics saved: xgb_metrics.rds\n\n")
 
 # ── 4. Feature Importance ─────────────────────────────────────────────────────
 importance_matrix <- xgb.importance(

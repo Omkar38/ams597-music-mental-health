@@ -4,7 +4,9 @@ df_clean.csv
 top_features.rds
 xgb_depression_model.bin
 xgb_feature_importance.csv
+xgb_metrics.rds
 results_summary_table.csv
+model_accuracy_comparison.csv
 *.png
 
 # R session artifacts

@@ -29,7 +29,7 @@ The main preprocessing goals are:
 # 2. Load Data and Inspect Structure
 
 ```{r}
-df_raw <- read.csv("mxmh_survey_results.csv", stringsAsFactors = FALSE)
+df_raw <- read.csv("data/mxmh_survey_results.csv", stringsAsFactors = FALSE)
 
 dim(df_raw)
 str(df_raw)
